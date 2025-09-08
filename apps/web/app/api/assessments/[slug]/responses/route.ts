@@ -5,18 +5,21 @@ import { z } from "zod";
 type Ctx = { params: Promise<{ slug: string }> };
 
 const BodySchema = z.object({
-  answers: z.record(z.string(), z.number()), // { [itemKey: string]: number }
- userId: z.string().optional(),
+  answers: z.record(z.string(), z.number()), // { [itemKey]: number }
+  userId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const { slug } = await ctx.params;
 
-    const payload = (await req.json()) as unknown;
-    const parsed = BodySchema.safeParse(payload);
+    const json = await req.json();
+    const parsed = BodySchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid payload", issues: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid payload", issues: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const assessment = await prisma.assessment.findUnique({
