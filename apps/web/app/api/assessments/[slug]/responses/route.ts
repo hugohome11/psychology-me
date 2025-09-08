@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const { slug } = await ctx.params;
 
-    const json = await req.json();
+    const json: unknown = await req.json();
     const parsed = BodySchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
