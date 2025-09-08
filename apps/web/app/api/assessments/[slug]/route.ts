@@ -1,19 +1,18 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '../../../../lib/prisma'; // 4x .. from [slug]/route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "../../../../lib/prisma";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+type Ctx = { params: Promise<{ slug: string }> };
 
-export async function GET(_: Request, { params }: { params: { slug: string } }) {
-  try {
-    const a = await prisma.assessment.findUnique({ where: { slug: params.slug } });
-    if (!a) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json(a);
-  } catch (e: any) {
-    console.error('GET /api/assessments/[slug] error:', e);
-    return NextResponse.json(
-      { error: 'internal_error', message: e?.message ?? String(e) },
-      { status: 500 }
-    );
+export async function GET(_req: Request, ctx: Ctx) {
+  const { slug } = await ctx.params;
+
+  const assessment = await prisma.assessment.findUnique({
+    where: { slug },
+  });
+
+  if (!assessment) {
+    return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
   }
+
+  return NextResponse.json(assessment);
 }

@@ -1,126 +1,92 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
+import Link from "next/link";
 
 type Answers = Record<string, number>;
-type CreatedResponse = {
-  id: string; assessmentId: string; payload: any; score: number; createdAt: string;
-};
-type ReportPayload = {
-  assessment: string;
-  responseId: string;
-  report: { title: string; raw: number; normalized: number };
-};
+type Created = { id: string };
+
+function hasId(x: unknown): x is Created {
+  return typeof x === "object" && x !== null && typeof (x as { id?: unknown }).id === "string";
+}
 
 export default function DemoAssessmentPage() {
-  const items = [
-    { key: 'q1', label: 'I often plan ahead.' },
-    { key: 'q2', label: 'I can stay focused on tasks.' },
-    { key: 'q3', label: 'I manage stress effectively.' },
-    { key: 'q4', label: 'I communicate clearly.' },
-    { key: 'q5', label: 'I adapt to change well.' },
-  ] as const;
-
-  const [answers, setAnswers] = useState<Answers>(
-    Object.fromEntries(items.map(i => [i.key, 3])) as Answers
-  );
-  const [submitting, setSubmitting] = useState(false);
-  const [resp, setResp] = useState<CreatedResponse | null>(null);
-  const [report, setReport] = useState<ReportPayload | null>(null);
+  const [answers, setAnswers] = useState<Answers>({ Q1: 3, Q2: 3, Q3: 3 });
+  const [loading, setLoading] = useState(false);
+  const [created, setCreated] = useState<Created | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const total = Object.values(answers).reduce((s, v) => s + v, 0);
-  const normalized = Math.round((total / (items.length * 5)) * 100);
+  const update = (key: keyof Answers) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = Number(e.target.value);
+    setAnswers((prev) => ({ ...prev, [key]: v }));
+  };
 
   async function submit() {
-    setSubmitting(true); setError(null); setResp(null); setReport(null);
+    setLoading(true);
+    setError(null);
+    setCreated(null);
     try {
-      const create = await fetch('/api/assessments/demo/responses', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: answers }),
+      const res = await fetch("/api/assessments/demo/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
       });
-      const created: CreatedResponse | { error: string; message?: string } = await create.json();
-      if (!create.ok || 'error' in created) throw new Error(('message' in created && created.message) || 'Submit failed');
-      setResp(created as CreatedResponse);
-
-      // fetch latest report
-      const repRes = await fetch('/api/assessments/demo/report', { cache: 'no-store' });
-      const rep: ReportPayload | { error: string; message?: string } = await repRes.json();
-      if (!repRes.ok || 'error' in rep) throw new Error(('message' in rep && rep.message) || 'Report failed');
-      setReport(rep as ReportPayload);
-    } catch (e: any) {
-      setError(e?.message ?? 'Something went wrong');
+      const data: unknown = await res.json();
+      if (res.ok && hasId(data)) {
+        setCreated({ id: data.id });
+      } else {
+        setError("Submit failed");
+      }
+    } catch {
+      setError("Network error");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-semibold">Demo Assessment</h1>
-      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-        Adjust the sliders (1–5) and submit. We’ll save your response and show a computed report.
-      </p>
+    <main className="mx-auto max-w-xl p-6 space-y-6">
+      <h1 className="text-xl font-semibold">Demo Assessment</h1>
 
-      <div className="mt-6 space-y-5">
-        {items.map(({ key, label }) => (
-          <div key={key}>
-            <label htmlFor={key} className="text-sm font-medium">{label}</label>
-            <div className="mt-2 flex items-center gap-4">
-              <input
-                id={key}
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={answers[key]}
-                onChange={(e) => setAnswers(a => ({ ...a, [key]: Number(e.target.value) }))}
-                className="w-full"
-              />
-              <span className="w-6 text-right tabular-nums">{answers[key]}</span>
-            </div>
+      <div className="space-y-4">
+        {(["Q1", "Q2", "Q3"] as const).map((k) => (
+          <div key={k}>
+            <label className="block text-sm font-medium mb-1">{k}</label>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={answers[k]}
+              onChange={update(k)}
+              className="w-full"
+            />
+            <div className="text-sm text-gray-600 mt-1">Value: {answers[k]}</div>
           </div>
         ))}
       </div>
 
-      <div className="mt-4 text-sm">
-        Client preview: <strong>{total}</strong> / {items.length * 5} · norm <strong>{normalized}%</strong>
-      </div>
-
-      <div className="mt-6 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <button
           onClick={submit}
-          disabled={submitting}
-          className="rounded-lg border px-4 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+          disabled={loading}
+          className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
         >
-          {submitting ? 'Submitting…' : 'Submit sample'}
+          {loading ? "Submitting..." : "Submit"}
         </button>
-        <a href="/api/assessments/demo/report" className="text-sm underline decoration-dotted" rel="nofollow">
-          Open latest report (raw)
-        </a>
+
+        {/* Use Link instead of <a> */}
+        <Link
+          href="/api/assessments/demo/report"
+          className="text-sm underline underline-offset-2"
+        >
+          View report (JSON)
+        </Link>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">Error: {error}</p>}
-
-      {resp && (
-        <div className="mt-6">
-          <h2 className="text-base font-semibold">Saved response</h2>
-          <pre className="mt-2 text-xs bg-neutral-50 dark:bg-neutral-900 p-3 rounded-lg overflow-auto">
-            {JSON.stringify(resp, null, 2)}
-          </pre>
-        </div>
+      {created && (
+        <p className="text-green-700 text-sm">Created response id: {created.id}</p>
       )}
-
-      {report && (
-        <div className="mt-6">
-          <h2 className="text-base font-semibold">{report.report.title}</h2>
-          <p className="text-sm mt-1">Raw: <strong>{report.report.raw}</strong> · Normalized: <strong>{report.report.normalized}%</strong></p>
-          <pre className="mt-2 text-xs bg-neutral-50 dark:bg-neutral-900 p-3 rounded-lg overflow-auto">
-            {JSON.stringify(report, null, 2)}
-          </pre>
-        </div>
-      )}
+      {error && <p className="text-red-700 text-sm">{error}</p>}
     </main>
   );
 }
