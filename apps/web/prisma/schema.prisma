@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (6543) for runtime
+  directUrl = env("DIRECT_URL") // direct (5432) for migrations
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+}
+
+model Assessment {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // back-relation (this is what was missing)
+  responses Response[]
+}
+
+model Response {
+  id           String   @id @default(cuid())
+  assessmentId String
+  userId       String? // keep as plain string for now; can relate to User later
+  payload      Json
+  score        Float?
+  createdAt    DateTime @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id])
+
+  @@index([assessmentId])
+}
