@@ -1,47 +1,43 @@
-import { NextResponse, NextRequest } from 'next/server';
-import { prisma } from '../../../../../lib/prisma';
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+import { NextResponse, type NextRequest } from "next/server";
+import { prisma } from "../../../../../lib/prisma";
+import { z } from "zod";
 
 type Ctx = { params: Promise<{ slug: string }> };
-type Payload = Record<string, number | string>;
+
+const BodySchema = z.object({
+  answers: z.record(z.string(), z.number()), // { [itemKey: string]: number }
+ userId: z.string().optional(),
+});
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const { slug } = await ctx.params;
-    const body: { payload?: Payload } = await req.json();
-    const payload: Payload = body?.payload ?? {};
 
-    const a = await prisma.assessment.findUnique({ where: { slug } });
-    if (!a) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    const payload = (await req.json()) as unknown;
+    const parsed = BodySchema.safeParse(payload);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload", issues: parsed.error.flatten() }, { status: 400 });
+    }
 
-    const sum = Object.values(payload).reduce<number>((s, v) => {
-      const n = typeof v === 'number' ? v : Number(v);
-      return s + (Number.isFinite(n) ? n : 0);
-    }, 0);
-    const count = Math.max(1, Object.keys(payload).length);
-    const score = Math.round((sum / (count * 5)) * 100);
+    const assessment = await prisma.assessment.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (!assessment) {
+      return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+    }
 
     const created = await prisma.response.create({
-      data: { assessmentId: a.id, userId: null, payload, score }
+      data: {
+        assessmentId: assessment.id,
+        userId: parsed.data.userId ?? null,
+        payload: parsed.data.answers,
+      },
+      select: { id: true, createdAt: true },
     });
-    return NextResponse.json(created, { status: 201 });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Invalid body';
-    return NextResponse.json({ error: 'bad_request', message }, { status: 400 });
+
+    return NextResponse.json({ id: created.id, createdAt: created.createdAt }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-}
-
-export async function GET(_req: NextRequest, ctx: Ctx) {
-  const { slug } = await ctx.params;
-  const a = await prisma.assessment.findUnique({ where: { slug } });
-  if (!a) return NextResponse.json([]);
-
-  const items = await prisma.response.findMany({
-    where: { assessmentId: a.id },
-    orderBy: { createdAt: 'desc' },
-    take: 20
-  });
-  return NextResponse.json(items);
 }
