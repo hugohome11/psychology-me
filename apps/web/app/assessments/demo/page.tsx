@@ -16,10 +16,12 @@ export default function DemoAssessmentPage() {
   const [created, setCreated] = useState<Created | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const update = (key: keyof Answers) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number(e.target.value);
-    setAnswers((prev) => ({ ...prev, [key]: v }));
-  };
+  const update =
+    (key: keyof Answers) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = Number(e.target.value);
+      setAnswers((prev) => ({ ...prev, [key]: v }));
+    };
 
   async function submit() {
     setLoading(true);
@@ -52,14 +54,7 @@ export default function DemoAssessmentPage() {
         {(["Q1", "Q2", "Q3"] as const).map((k) => (
           <div key={k}>
             <label className="block text-sm font-medium mb-1">{k}</label>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              value={answers[k]}
-              onChange={update(k)}
-              className="w-full"
-            />
+            <input type="range" min={1} max={5} value={answers[k]} onChange={update(k)} className="w-full" />
             <div className="text-sm text-gray-600 mt-1">Value: {answers[k]}</div>
           </div>
         ))}
@@ -74,18 +69,12 @@ export default function DemoAssessmentPage() {
           {loading ? "Submitting..." : "Submit"}
         </button>
 
-        {/* Use Link instead of <a> */}
-        <Link
-          href="/api/assessments/demo/report"
-          className="text-sm underline underline-offset-2"
-        >
+        <Link href="/api/assessments/demo/report" className="text-sm underline underline-offset-2">
           View report (JSON)
         </Link>
       </div>
 
-      {created && (
-        <p className="text-green-700 text-sm">Created response id: {created.id}</p>
-      )}
+      {created && <p className="text-green-700 text-sm">Created response id: {created.id}</p>}
       {error && <p className="text-red-700 text-sm">{error}</p>}
     </main>
   );
