@@ -1,17 +1,20 @@
 import NextAuth from "next-auth";
 import { authConfig } from "../../../../lib/auth";
 
-/**
- * next-auth v4 in the App Router:
- * NextAuth(...) returns a single RequestHandler.
- * Export explicit GET/POST functions to avoid any export shape ambiguity.
- */
+// Instantiate the handler once at module scope
 const handler = NextAuth(authConfig);
 
-export async function GET(req: Request, ctx: { params: Record<string, string> }) {
-  return handler(req, ctx as unknown as Record<string, unknown>);
+// Next 15 route context: params are provided as a Promise,
+// and for `[...nextauth]` the key is `nextauth`
+type Ctx = { params: Promise<{ nextauth: string[] }> };
+type NextAuthCtx = { params: { nextauth: string[] } };
+
+export async function GET(req: Request, ctx: Ctx) {
+  const params = await ctx.params;
+  return handler(req, { params } as NextAuthCtx);
 }
 
-export async function POST(req: Request, ctx: { params: Record<string, string> }) {
-  return handler(req, ctx as unknown as Record<string, unknown>);
+export async function POST(req: Request, ctx: Ctx) {
+  const params = await ctx.params;
+  return handler(req, { params } as NextAuthCtx);
 }
