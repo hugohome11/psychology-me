@@ -36,6 +36,4 @@ export const authConfig: NextAuthOptions = {
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   // We use Prisma Session model; default is "database"
   session: { strategy: "database" },
-  // Required on Vercel when your NEXTAUTH_URL can vary across previews
-  trustHost: true,
 };
