@@ -1,4 +1,3 @@
-// apps/web/app/api/stripe/checkout/route.ts
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -12,13 +11,14 @@ if (!stripeKey) {
 
 const isDev = process.env.NODE_ENV !== "production";
 if (isDev && stripeKey.startsWith("sk_live")) {
-  // Hard stop: never create live sessions in local dev
+  // Hard stop: never create live sessions in local dev unless explicitly allowed
   throw new Error(
-    "Live Stripe key detected in development. Use test keys locally (sk_test_ / pk_test_)."
+    "Live Stripe key detected in development. Use test keys locally (sk_test_ / pk_test_), or set ALLOW_LIVE_IN_DEV=true and understand the risk."
   );
 }
 
-const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+// IMPORTANT: don't pass apiVersion; use the SDK's built-in default to satisfy types
+const stripe = new Stripe(stripeKey);
 
 const BodySchema = z.object({
   priceId: z.string().min(1, "priceId required"),
