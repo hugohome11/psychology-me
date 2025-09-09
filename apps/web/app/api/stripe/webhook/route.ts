@@ -1,4 +1,3 @@
-// apps/web/app/api/stripe/webhook/route.ts
 import Stripe from "stripe";
 
 export const runtime = "nodejs";
@@ -7,24 +6,30 @@ export const dynamic = "force-dynamic";
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-if (!stripeKey) throw new Error("Missing STRIPE_SECRET_KEY env");
-if (!webhookSecret) console.warn("[stripe] STRIPE_WEBHOOK_SECRET not set (webhooks will 400)");
+if (!stripeKey) {
+  throw new Error("Missing STRIPE_SECRET_KEY env");
+}
+if (!webhookSecret) {
+  console.warn("[stripe] STRIPE_WEBHOOK_SECRET not set (webhooks will 400)");
+}
 
-const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+const stripe = new Stripe(stripeKey);
 
 export async function POST(req: Request) {
   if (!webhookSecret) {
-    return new Response("Webhook not configured", { status: 400 });
+    return new Response("Missing STRIPE_WEBHOOK_SECRET", { status: 400 });
   }
 
-  const sig = req.headers.get("stripe-signature");
-  if (!sig) return new Response("Missing signature", { status: 400 });
+  const signature = req.headers.get("stripe-signature");
+  if (!signature) {
+    return new Response("Missing stripe-signature", { status: 400 });
+  }
 
-  const payload = await req.text(); // RAW body required for verification
+  const body = Buffer.from(await req.arrayBuffer());
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(payload, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Invalid signature";
     console.error("[stripe] webhook signature error:", msg);
@@ -32,27 +37,20 @@ export async function POST(req: Request) {
   }
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        // Minimal: just log. (We can persist to DB later.)
-        console.log("[stripe] checkout.session.completed", {
-          id: session.id,
-          mode: session.mode,
-          customer_email: session.customer_details?.email,
-          amount_total: session.amount_total,
-          currency: session.currency,
-        });
-        break;
-      }
-      default:
-        // Keep logs sparse in prod
-        break;
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      console.log("[stripe] checkout.session.completed:", {
+        id: session.id,
+        amount_total: session.amount_total,
+        customer: session.customer,
+        customer_email: session.customer_email,
+      });
     }
-    return new Response("OK", { status: 200 });
+
+    return new Response("ok", { status: 200 });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unhandled webhook error";
-    console.error("[stripe] handler error:", msg);
+    const msg = err instanceof Error ? err.message : "Unknown webhook handler error";
+    console.error("[stripe] webhook handler error:", msg);
     return new Response(`Handler Error: ${msg}`, { status: 500 });
   }
 }
