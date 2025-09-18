@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 3010",
-    "build": "next build --turbopack",
+    "build": "next build",
+    "build:webpack": "next build",
     "start": "next start",
     "lint": "eslint",
     "health:local": "curl -s http://localhost:3000/api/health || exit 1",
@@ -38,12 +39,12 @@
     "tailwindcss": "^4",
     "tsx": "^4.20.5",
     "typescript": "^5"
-  }
-  "scripts": {
-    "build:webpack": "next build",
-    "build": "next build"
-  }
+  },
   "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma"]
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
+    ]
   }
 }
