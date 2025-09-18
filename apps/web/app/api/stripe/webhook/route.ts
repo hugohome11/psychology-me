@@ -1,6 +1,5 @@
-// app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export async function POST() {
-  return NextResponse.json({ ok: true }, { status: 200 });
+  return new NextResponse("Missing stripe-signature", { status: 400 });
 }
