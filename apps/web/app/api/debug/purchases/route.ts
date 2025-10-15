@@ -1,3 +1,5 @@
+﻿export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 // apps/web/app/api/debug/purchases/route.ts
 import prisma from "@/lib/prisma";
 
@@ -15,3 +17,4 @@ export async function GET() {
   });
   return Response.json({ count: rows.length, rows });
 }
+
