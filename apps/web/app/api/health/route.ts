@@ -1,8 +1,7 @@
-// apps/web/app/api/health/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";   // ← use alias, not deep relative
+import { prisma } from "@/lib/prisma";
 
-export const runtime = "nodejs";         // ← ensure server runtime
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
