@@ -1,7 +1,7 @@
 ﻿export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // apps/web/app/api/debug/purchases/route.ts
-import prisma from "@/lib/prisma";
+import { prisma } from "../../../../lib/prisma";
 
 function notFound() {
   return new Response("Not Found", { status: 404 });
