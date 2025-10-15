@@ -31,3 +31,15 @@ Thumbs.db
 prisma/*.db
 prisma/*.sqlite
 .vercel
+
+# Local scratch & secrets (ignore globally)
+headers.txt
+payload.json
+stripe-listen.secret.txt
+whsec.txt
+turbo/
+scripts/
+psychology-me@
+app/signin/
+types/
+package.head.json
