@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 3010",
+    "prebuild": "prisma generate",
     "build": "next build",
     "build:webpack": "next build",
     "start": "next start",
