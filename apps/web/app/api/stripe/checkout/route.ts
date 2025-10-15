@@ -1,9 +1,8 @@
 // apps/web/app/api/stripe/checkout/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+import { NextRequest, NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
 
 function computeBaseUrl(req: NextRequest): string {
   const envUrl =

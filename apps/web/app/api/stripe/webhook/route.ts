@@ -1,11 +1,10 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 // NOTE: relative import to avoid alias issues in prod
 import { prisma } from "../../../../lib/prisma";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   // apiVersion left default to SDK’s pinned version
