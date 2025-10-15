@@ -30,3 +30,4 @@ Thumbs.db
 # Prisma local dbs (if you ever use SQLite locally)
 prisma/*.db
 prisma/*.sqlite
+.vercel

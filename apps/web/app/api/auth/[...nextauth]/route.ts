@@ -1,8 +1,8 @@
+﻿// apps/web/app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth";
-import { authConfig } from "../../../../lib/auth";
+import { authOptions } from "@/lib/auth";
 
-const handler = NextAuth(authConfig);
+export const runtime = "nodejs";
 
-// App Router: re-export the bound handler for both methods.
-// NextAuth reads the catch-all segment and routes internally.
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

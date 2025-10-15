@@ -1,26 +1,41 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '../../../../../lib/prisma'; // 5x .. to reach apps/web
+import { NextResponse, type NextRequest } from "next/server";
+import { prisma } from "../../../../../lib/prisma";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+type Ctx = { params: Promise<{ slug: string }> };
 
-export async function GET(_: Request, { params }: { params: { slug: string } }) {
-  const a = await prisma.assessment.findUnique({ where: { slug: params.slug } });
-  if (!a) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+export async function GET(_req: NextRequest, ctx: Ctx) {
+  const { slug } = await ctx.params;
 
-  const latest = await prisma.response.findFirst({
-    where: { assessmentId: a.id },
-    orderBy: { createdAt: 'desc' }
+  const assessment = await prisma.assessment.findUnique({
+    where: { slug },
+    select: { id: true },
   });
-  if (!latest) return NextResponse.json({ message: 'no_responses_yet' });
+  if (!assessment) {
+    return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+  }
 
-  const payload = latest.payload as Record<string, number>;
-  const sum = Object.values(payload).reduce((s, v) => s + (Number(v) || 0), 0);
-  const norm = Math.round((sum / (5 * Math.max(1, Object.keys(payload).length))) * 100);
+  // Grab the most recent response for this assessment
+  const latest = await prisma.response.findFirst({
+    where: { assessmentId: assessment.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, payload: true },
+  });
+
+  if (!latest) {
+    return NextResponse.json({ message: "No responses yet" });
+  }
+
+  // Compute a simple percentage score (1–5 scaled to 0–100)
+  const payload = latest.payload as Record<string, unknown>;
+  const values = Object.values(payload).map(v => (typeof v === "number" ? v : Number(v)));
+  const clean = values.filter(n => Number.isFinite(n)) as number[];
+  const count = Math.max(1, clean.length);
+  const sum = clean.reduce((a, b) => a + b, 0);
+  const score = Math.round((sum / (count * 5)) * 100);
 
   return NextResponse.json({
-    assessment: a.slug,
+    assessment: slug,
     responseId: latest.id,
-    report: { title: 'Demo Report', raw: sum, normalized: norm }
+    report: { count, sum, score, payload: latest.payload },
   });
 }

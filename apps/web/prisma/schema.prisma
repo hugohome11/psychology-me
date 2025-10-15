@@ -209,6 +209,15 @@ model Submission {
   @@index([purchaseId])
 }
 
+model Entitlement {
+  id        String   @id @default(cuid())
+  email     String
+  priceId   String
+  createdAt DateTime @default(now())
+
+  @@unique([email, priceId])
+}
+
 model Response {
   id           String  @id @default(cuid())
   submissionId String

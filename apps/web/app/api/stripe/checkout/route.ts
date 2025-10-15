@@ -1,60 +1,80 @@
-import Stripe from "stripe";
-import { z } from "zod";
+// apps/web/app/api/stripe/checkout/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const stripeKey = process.env.STRIPE_SECRET_KEY;
-if (!stripeKey) {
-  throw new Error("Missing STRIPE_SECRET_KEY env");
+function computeBaseUrl(req: NextRequest): string {
+  const envUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXTAUTH_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+  const proto = req.headers.get("x-forwarded-proto") ?? "http";
+  const host = req.headers.get("host") ?? "localhost:3000";
+  return `${proto}://${host}`;
 }
 
-const isDev = process.env.NODE_ENV !== "production";
-if (isDev && stripeKey.startsWith("sk_live")) {
-  // Hard stop: never create live sessions in local dev unless explicitly allowed
-  throw new Error(
-    "Live Stripe key detected in development. Use test keys locally (sk_test_ / pk_test_), or set ALLOW_LIVE_IN_DEV=true and understand the risk."
-  );
+function bad(status: number, msg: string) {
+  return NextResponse.json({ error: msg }, { status });
 }
 
-// IMPORTANT: don't pass apiVersion; use the SDK's built-in default to satisfy types
-const stripe = new Stripe(stripeKey);
+export async function POST(req: NextRequest) {
+  let priceId = (process.env.NEXT_PUBLIC_DEFAULT_PRICE_ID || "").trim();
+  let quantity = 1;
 
-const BodySchema = z.object({
-  priceId: z.string().min(1, "priceId required"),
-  quantity: z.number().int().positive().optional().default(1),
-  mode: z.enum(["payment", "subscription"]).optional().default("payment"),
-  successUrl: z.string().url().optional(),
-  cancelUrl: z.string().url().optional(),
-});
-
-export async function POST(req: Request) {
-  const origin =
-    req.headers.get("origin") ??
-    process.env.NEXTAUTH_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-
-  const json = (await req.json().catch(() => ({}))) as unknown;
-  const parsed = BodySchema.safeParse(json);
-  if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  const ct = req.headers.get("content-type") || "";
+  try {
+    if (ct.includes("application/json")) {
+      const body = (await req.json()) as { priceId?: string; quantity?: number };
+      priceId = (body.priceId ?? priceId).toString();
+      quantity = Number(body.quantity ?? 1) || 1;
+    } else if (ct.includes("application/x-www-form-urlencoded")) {
+      const form = await req.formData();
+      priceId = String(form.get("priceId") ?? priceId);
+      quantity = Number(form.get("quantity") ?? 1) || 1;
+    }
+  } catch {
+    /* ignore, fallback to env */
   }
-  const { priceId, quantity, mode, successUrl, cancelUrl } = parsed.data;
+
+  if (!priceId) {
+    return NextResponse.json(
+      { error: "Missing priceId and no NEXT_PUBLIC_DEFAULT_PRICE_ID set" },
+      { status: 400 }
+    );
+  }
+  if (quantity < 1) quantity = 1;
+
+  const baseUrl = computeBaseUrl(req);
 
   try {
+    // Look up the price to decide the correct Checkout mode.
+    const price = await stripe.prices.retrieve(priceId);
+
+    // If price.recurring is present, it's a subscription price; otherwise one-time.
+    const isRecurring = Boolean(price.recurring);
+    const mode: "payment" | "subscription" = isRecurring ? "subscription" : "payment";
+
     const session = await stripe.checkout.sessions.create({
       mode,
-      line_items: [{ price: priceId, quantity }],
-      success_url: successUrl ?? `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl ?? `${origin}/checkout/cancel`,
-      allow_promotion_codes: true,
-      automatic_tax: { enabled: true },
+      line_items: [{ price: price.id, quantity }],
+      success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/checkout/cancel`,
+      allow_promotion_codes: false,
     });
 
-    return Response.json({ id: session.id, url: session.url });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown Stripe error";
-    console.error("Stripe checkout error:", msg);
-    return Response.json({ error: msg }, { status: 500 });
+    if (!session.url) {
+      return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
+    }
+    return NextResponse.json({ url: session.url }, { status: 200 });
+  } catch (err: any) {
+    console.error("checkout create failed:", err?.message || err);
+    return NextResponse.json({ error: err?.message ?? "Checkout failed" }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return bad(405, "Method Not Allowed");
 }
